@@ -1,0 +1,32 @@
+{
+  "name": "CP2077 Tarot Style Bible v2 (print + brush)",
+  "core_rendering": [
+    "matte ink/gouache look (no glossy materials)",
+    "flat posterized shapes, 2-3 tones per object max",
+    "thick black brush outlines + messy dry-brush fills",
+    "visible paper grain, paint splatter, smudges, worn edges",
+    "slight color misregistration (screenprint feel)"
+  ],
+  "composition_rules": [
+    "full-bleed illustration with thick black margin/negative space (no ornate HUD frame)",
+    "one dominant silhouette, background is abstract blocks/brush strokes (not detailed cityscape)",
+    "high contrast: big dark masses + 1-2 bright accents",
+    "symbolism readable at thumbnail size"
+  ],
+  "palette_rules": [
+    "per-card limited palette: black + 2-4 inks + 1 accent",
+    "avoid full-spectrum neon; use muted neon as paint, not as light sources",
+    "avoid smooth gradients; if transition needed -> hard edge or rough brush"
+  ],
+  "glitch_rules": [
+    "glitch = print artifacts: speckles, scratches, ink bleed, offset layers",
+    "no digital confetti/pixels unless extremely sparse"
+  ],
+  "avoid": [
+    "3d render, raytracing, cinematic lighting, bloom, lens flare, HDR glow",
+    "glossy chrome reflections",
+    "symmetrical techno-ornament frames",
+    "vector-clean lines, perfect geometry everywhere",
+    "readable text, logos, watermarks"
+  ]
+}

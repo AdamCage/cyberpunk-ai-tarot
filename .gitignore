@@ -1,0 +1,32 @@
+# Окружение
+.env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Клонированные инструменты
+vendor/
+
+# Выходные данные тренировки (LoRA-файлы, превью)
+output/
+output_test/
+
+# Временные конфиги (генерируются train.py при запуске)
+config/_resolved_*.yaml
+
+# Большие бинарные файлы моделей
+*.safetensors
+*.ckpt
+*.pt
+*.bin
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Сгенерированные данные
+data/generated/

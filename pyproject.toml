@@ -1,0 +1,55 @@
+[project]
+name = "cyberpunk-ai-tarot"
+version = "0.1.0"
+description = "LoRA training and generation pipeline for CP2077 minor arcana tarot cards"
+requires-python = ">=3.11"
+
+# Лёгкие зависимости — нужны всем скриптам
+dependencies = [
+    "python-dotenv>=1.0.0",
+]
+
+# Тяжёлые ML-зависимости — только для тренировки
+# Установка: uv sync --extra training
+[project.optional-dependencies]
+training = [
+    "torch>=2.4.0",
+    "torchvision>=0.19.0",
+    "torchaudio>=2.4.0",
+    "transformers>=4.44.0",
+    "diffusers>=0.30.0",
+    "accelerate>=0.33.0",
+    "peft>=0.12.0",
+    "huggingface-hub>=0.24.0",
+    "tokenizers>=0.19.0",
+    "safetensors>=0.4.3",
+    "sentencepiece>=0.2.0",
+    "protobuf>=4.25.0",
+    "bitsandbytes>=0.43.0",
+    "prodigyopt>=1.0",
+    "lion-pytorch>=0.1.2",
+    "schedulefree>=1.2.6",
+    "lycoris-lora>=2.2.0",
+    "omegaconf>=2.3.0",
+    "oyaml",
+    "pillow>=10.0.0",
+    "tqdm>=4.66.0",
+    "numpy>=1.26.0",
+    "einops>=0.8.0",
+    "pyyaml>=6.0",
+    "requests>=2.31.0",
+    "regex>=2024.0.0",
+    "ftfy>=6.2.0",
+    "opencv-python>=4.8.0",
+]
+
+# CUDA-версия torch — PyTorch-индекс cu124 совместим с CUDA 12.x
+[tool.uv.sources]
+torch       = { index = "pytorch-cu124" }
+torchvision = { index = "pytorch-cu124" }
+torchaudio  = { index = "pytorch-cu124" }
+
+[[tool.uv.index]]
+name     = "pytorch-cu124"
+url      = "https://download.pytorch.org/whl/cu124"
+explicit = true

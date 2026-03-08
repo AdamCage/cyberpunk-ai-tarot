@@ -1,0 +1,63 @@
+job: extension
+config:
+  name: cp2077_tarot_lora
+  process:
+    - type: sd_trainer
+      training_folder: "${PROJECT_ROOT}/output"
+      device: cuda:0
+      trigger_word: "${TRIGGER_WORD}"
+
+      save:
+        dtype: float16
+        save_every: 250
+        max_step_saves_to_keep: 4
+
+      datasets:
+        - folder_path: "${PROJECT_ROOT}/data/originals"
+          caption_ext: txt
+          resolution:
+            - ${TRAINING_RESOLUTION_W}
+            - ${TRAINING_RESOLUTION_H}
+          num_repeats: ${TRAINING_NUM_REPEATS}
+          shuffle_tokens: false
+          random_flip: false
+
+      train:
+        batch_size: ${TRAINING_BATCH_SIZE}
+        steps: ${TRAINING_STEPS}
+        gradient_accumulation_steps: 2
+        train_unet: true
+        train_text_encoder: false
+        gradient_checkpointing: true
+        noise_scheduler: "flowmatch"
+        optimizer: "adamw8bit"
+        lr: ${TRAINING_LR}
+        lr_scheduler: "cosine_with_restarts"
+        lr_scheduler_params:
+          T_0: ${TRAINING_LR_RESTART_STEPS}
+        ema_config:
+          use_ema: false
+
+      model:
+        name_or_path: "${HF_MODEL_PATH}"
+        is_flux: true
+        quantize: true
+
+      network:
+        type: lora
+        linear: ${TRAINING_RANK}
+        linear_alpha: ${TRAINING_RANK}
+
+      sample:
+        sampler: "flowmatch"
+        sample_every: 250
+        width: ${TRAINING_RESOLUTION_W}
+        height: ${TRAINING_RESOLUTION_H}
+        prompts:
+          - "${TRIGGER_WORD}, tarot card illustration, cyberpunk city vibe, graphic poster style, matte ink gouache look, a hooded figure in a dark industrial city, high contrast, heavy blacks, screenprint texture"
+          - "${TRIGGER_WORD}, tarot card illustration, cyberpunk city vibe, graphic poster style, matte ink gouache look, a chrome cup overflowing with luminous coolant, flat posterized shapes, worn paint edges"
+        neg: "photorealism, 3d render, blurry, smooth gradients, glossy, watermark, logo, readable text"
+        seed: 42
+        walk_seed: true
+        guidance_scale: 4.0
+        sample_steps: 20
