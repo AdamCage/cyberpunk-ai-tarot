@@ -21,6 +21,7 @@ add_card_borders.py — добавляет киберпанк-рамку и на
 import argparse
 import io
 import json
+import math
 import os
 import sys
 
@@ -450,6 +451,163 @@ def collect_sources(
     return sources
 
 
+# ─── Коллаж всех карт ─────────────────────────────────────────────────────────
+
+# Порядок групп и карт для коллажа
+_SUIT_ORDER = ["major", "cups", "swords", "wands", "pentacles"]
+
+_RANK_ORDER = [
+    "01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
+    "page", "knight", "queen", "king",
+]
+
+_MAJOR_STEMS = [
+    "TarotCard_01_TheFool", "TarotCard_02_TheMagician", "TarotCard_03_TheHighPriestess",
+    "TarotCard_04_TheEmpress", "TarotCard_05_TheEmperor", "TarotCard_06_TheHierophant",
+    "TarotCard_07_TheLovers", "TarotCard_08_TheChariot", "TarotCard_09_Strength",
+    "TarotCard_10_TheHermit", "TarotCard_11_WheelOfFortune", "TarotCard_12_Justice",
+    "TarotCard_13_TheHangedMan", "TarotCard_14_Death", "TarotCard_15_Temperance",
+    "TarotCard_16_TheDevil", "TarotCard_17_TheTower", "TarotCard_18_TheStar",
+    "TarotCard_19_TheMoon", "TarotCard_20_TheSun", "TarotCard_21_Judgement",
+    "TarotCard_22_TheWorld",
+]
+
+
+def _suit_rank_key(card_id: str) -> tuple[int, int]:
+    """Ключ сортировки для карт масти: (индекс масти, индекс ранга)."""
+    for si, suit in enumerate(["cups", "swords", "wands", "pentacles"]):
+        if card_id.startswith(suit + "_"):
+            rank = card_id[len(suit) + 1:]
+            ri = _RANK_ORDER.index(rank) if rank in _RANK_ORDER else 99
+            return si + 1, ri
+    return 0, 0
+
+
+def _collect_final_cards(
+    final_dir: Path,
+    meta: dict[str, dict],
+) -> list[tuple[Path, str, str]]:
+    """
+    Собирает все финальные PNG из final_dir.
+    Возвращает [(path, card_id, title_ru), ...] в порядке: major → cups → swords → wands → pentacles.
+    Внутри каждой группы: major по _MAJOR_STEMS, minor по _RANK_ORDER.
+    """
+    if not final_dir.exists():
+        return []
+
+    all_files: dict[str, Path] = {p.stem: p for p in final_dir.glob("*.png")}
+
+    result: list[tuple[Path, str, str]] = []
+
+    # Старшие арканы — в порядке _MAJOR_STEMS
+    for stem in _MAJOR_STEMS:
+        if stem in all_files:
+            entry = meta.get(stem)
+            title_ru, _ = resolve_card_info(stem, entry)
+            result.append((all_files[stem], stem, title_ru))
+
+    # Младшие арканы — по масти и рангу
+    minor_stems = [s for s in all_files if s not in set(_MAJOR_STEMS)]
+    minor_stems.sort(key=_suit_rank_key)
+    for stem in minor_stems:
+        entry = meta.get(stem)
+        title_ru, _ = resolve_card_info(stem, entry)
+        result.append((all_files[stem], stem, title_ru))
+
+    return result
+
+
+def save_all_cards_figure(
+    final_dir: Path,
+    meta: dict[str, dict],
+    out_path: Path,
+    cols: int = 14,
+) -> int:
+    """
+    Строит matplotlib-коллаж всех карт из final_dir и сохраняет в out_path.
+    Возвращает число карт в коллаже.
+    """
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    import numpy as np
+
+    cards = _collect_final_cards(final_dir, meta)
+    if not cards:
+        print("[!] Нет финальных карт для коллажа.", file=sys.stderr)
+        return 0
+
+    n = len(cards)
+    rows = math.ceil(n / cols)
+
+    # Целевое разрешение ~8K (7680×4320).
+    # figsize задаётся в дюймах, итоговый px = figsize * DPI.
+    # При cols=14, rows=6 и карте ~1:2 нужно ~48×28 дюймов × 160 DPI ≈ 7680×4480 px.
+    DPI = 160
+    CARD_W_IN = 7680 / cols / DPI        # ширина ячейки в дюймах
+    CARD_H_IN = CARD_W_IN * 2.15         # высота ячейки (пропорция карты ~1:2 + подпись)
+    LABEL_H_IN = 0.20                    # запас под подпись
+    H_GAP_IN = 0.04                      # межрядный зазор
+    FIG_W = cols * CARD_W_IN + 0.1
+    FIG_H = rows * (CARD_H_IN + LABEL_H_IN + H_GAP_IN) + 0.5
+
+    fig, axes = plt.subplots(
+        rows, cols,
+        figsize=(FIG_W, FIG_H),
+        squeeze=False,
+        gridspec_kw={"hspace": 0.12, "wspace": 0.03},
+    )
+    fig.patch.set_facecolor("#0d0d0d")
+    fig.suptitle(
+        "Cyberpunk 2077 Tarot — полная колода",
+        color="#e0c060", fontsize=28, fontweight="bold", y=1.002,
+    )
+
+    # Размер превью: берём карту целиком, thumbnail сохраняет пропорции
+    THUMB_PX = int(CARD_W_IN * DPI)
+
+    for idx, (path, card_id, title_ru) in enumerate(cards):
+        row, col = divmod(idx, cols)
+        ax = axes[row][col]
+        ax.set_facecolor("#111111")
+        ax.set_xticks([])
+        ax.set_yticks([])
+        for spine in ax.spines.values():
+            spine.set_edgecolor("#333333")
+
+        try:
+            from PIL import Image as PILImage
+            img = PILImage.open(path).convert("RGB")
+            img.thumbnail((THUMB_PX, THUMB_PX * 3), PILImage.LANCZOS)
+            ax.imshow(np.array(img), aspect="auto")
+        except Exception:
+            ax.text(0.5, 0.5, "?", ha="center", va="center",
+                    color="#ff4444", fontsize=24, transform=ax.transAxes)
+
+        ax.set_xlabel(
+            title_ru,
+            color="#cccccc", fontsize=11,
+            labelpad=4, linespacing=1.2,
+        )
+
+    # Скрыть пустые ячейки
+    for idx in range(n, rows * cols):
+        row, col = divmod(idx, cols)
+        axes[row][col].set_visible(False)
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"  → сохраняю коллаж {int(FIG_W * DPI)}×{int(FIG_H * DPI)} px @ {DPI} dpi ...")
+    fig.savefig(
+        str(out_path), dpi=DPI,
+        bbox_inches="tight",
+        facecolor=fig.get_facecolor(),
+    )
+    plt.close(fig)
+    print(f"  → коллаж: {out_path}  ({n} карт)")
+    return n
+
+
 # ─── CLI ───────────────────────────────────────────────────────────────────────
 
 def main() -> None:
@@ -462,6 +620,14 @@ def main() -> None:
     parser.add_argument("--cards", nargs="*",
                         help="Список card_id (stem файла) для обработки")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--no-collage", action="store_true",
+        help="Не генерировать all_cards.png после обработки",
+    )
+    parser.add_argument(
+        "--collage-cols", type=int, default=14,
+        help="Число колонок в коллаже all_cards.png (по умолчанию: 14)",
+    )
     args = parser.parse_args()
 
     meta = load_meta([MISSING_META, ORIGINALS_META])
@@ -487,10 +653,14 @@ def main() -> None:
 
         try:
             img = Image.open(img_path)
-            result = add_border(img, title_ru, suit)
+            if card_id == "card_back":
+                result = img.convert("RGB")
+                print(f"  [CP] {card_id:40s}  (без рамки)  -> {card_id}.png")
+            else:
+                result = add_border(img, title_ru, suit)
+                print(f"  [OK] {card_id:40s}  «{title_ru}»  -> {card_id}.png")
             out_path = args.output_dir / (card_id + ".png")
             result.save(str(out_path), format="PNG", optimize=False)
-            print(f"  [OK] {card_id:40s}  «{title_ru}»  -> {out_path.name}")
             ok += 1
         except Exception as e:
             print(f"  [ERR] {card_id}: {e}", file=sys.stderr)
@@ -498,6 +668,11 @@ def main() -> None:
 
     print()
     print(f"Done: {ok} processed, {skipped} skipped.")
+
+    if not args.dry_run and not args.no_collage:
+        print()
+        collage_path = args.output_dir / "all_cards.png"
+        save_all_cards_figure(args.output_dir, meta, collage_path, cols=args.collage_cols)
 
 
 if __name__ == "__main__":

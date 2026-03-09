@@ -1,0 +1,1 @@
+uv run generate_cards_comfyui.py --lora cp2077_tarot_lora_000007000.safetensors --width 960 --height 1920 --steps 20 --overwrite --benchmark seeds --benchmark-seeds "42,100,200,300,400,666,777,1000,1337,9999" --benchmark-lora 1.15 --cards "card_back,wands_10,pentacles_01,pentacles_02,pentacles_09"
