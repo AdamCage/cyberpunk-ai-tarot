@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-add_card_back_border.py — добавляет симметричные рамки к рубашке карты.
+add_card_back_border.py — добавляет симметричные рамки и bleed к рубашке карты.
 
 Две узкие колонки (левая + правая), идентичные по стилю колоды.
 Левая колонка содержит пасхалки:
@@ -8,8 +8,12 @@ add_card_back_border.py — добавляет симметричные рамк
   - ссылка на проект чуть заметнее
 Правая колонка — зеркальный декор без текста.
 
-Исходник:  data/generated/final/card_back.png   (960x1920)
-Результат: data/generated/card_back_to_print.png (1123x1948)
+После добавления рамки накладывается bleed 2mm (33px по горизонтали, 32px по вертикали)
+при пропорции карты 69x120mm — чёрная полоса по всем 4 сторонам для резки при печати.
+
+Исходник:  data/generated/final/card_back.png      (960x1920)
+С рамкой:                                          (1123x1948)
+Результат: data/generated/card_back_to_print.png   (1189x2012)
 """
 
 import io
@@ -27,9 +31,14 @@ INPUT_PATH   = PROJECT_ROOT / "data" / "generated" / "final" / "card_back.png"
 OUTPUT_PATH  = PROJECT_ROOT / "data" / "generated" / "card_back_to_print.png"
 FONT_PATH    = PROJECT_ROOT / "data" / "RussoOne-Regular.ttf"
 
-# Целевой итоговый размер совпадает с финальными картами колоды (cups_01.png и т.д.)
+# Размер с рамкой совпадает с финальными картами колоды (cups_01.png и т.д.)
 TARGET_W = 1123
 TARGET_H = 1948
+
+# Bleed 2mm при пропорции карты 69x120mm
+CARD_W_MM = 69.0
+CARD_H_MM = 120.0
+BLEED_MM  = 2.0
 
 # Цвет рубашки — нейтральное тёплое золото, не привязано к масти
 ACCENT = (110,  85, 35)    # приглушённое золото (было 180,140,60 — слишком ярко)
@@ -253,14 +262,26 @@ def main():
         sys.exit(1)
 
     img = Image.open(INPUT_PATH)
-    print(f"Input:  {INPUT_PATH.name}  {img.size[0]}x{img.size[1]} px")
+    print(f"Input:   {INPUT_PATH.name}  {img.size[0]}x{img.size[1]} px")
 
-    result = add_back_border(img)
-    print(f"Output: {OUTPUT_PATH.name}  {result.size[0]}x{result.size[1]} px")
+    bordered = add_back_border(img)
+    print(f"Framed:  {bordered.size[0]}x{bordered.size[1]} px")
+
+    # ── Bleed 2mm ─────────────────────────────────────────────────────────────
+    bw, bh = bordered.size
+    bleed_x = round(bw / CARD_W_MM * BLEED_MM)
+    bleed_y = round(bh / CARD_H_MM * BLEED_MM)
+    final_w = bw + 2 * bleed_x
+    final_h = bh + 2 * bleed_y
+
+    result = Image.new("RGB", (final_w, final_h), (0, 0, 0))
+    result.paste(bordered, (bleed_x, bleed_y))
+    print(f"Output:  {OUTPUT_PATH.name}  {final_w}x{final_h} px  "
+          f"(bleed +{bleed_x}px left/right, +{bleed_y}px top/bottom)")
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     result.save(str(OUTPUT_PATH), format="PNG", optimize=False)
-    print(f"Saved:  {OUTPUT_PATH}")
+    print(f"Saved:   {OUTPUT_PATH}")
 
 
 if __name__ == "__main__":
